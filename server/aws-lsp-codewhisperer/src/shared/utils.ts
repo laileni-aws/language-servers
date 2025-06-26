@@ -4,7 +4,7 @@ import {
     CredentialsProvider,
     Position,
 } from '@aws/language-server-runtimes/server-interface'
-import { AWSError } from 'aws-sdk'
+import { AWSError, Credentials } from 'aws-sdk'
 import { distance } from 'fastest-levenshtein'
 import { Suggestion } from './codeWhispererService'
 import { CodewhispererCompletionType } from './telemetry/types'
@@ -26,6 +26,8 @@ import { ServiceException } from '@smithy/smithy-client'
 import * as ignoreWalk from 'ignore-walk'
 import { getAuthFollowUpType } from '../language-server/chat/utils'
 import ignore = require('ignore')
+import { InitializeParams } from '@aws/language-server-runtimes/server-interface'
+import { QClientCapabilities } from '../language-server/configuration/qConfigurationServer'
 export type SsoConnectionType = 'builderId' | 'identityCenter' | 'none'
 
 export function isAwsError(error: unknown): error is AWSError {
@@ -316,6 +318,13 @@ export function getCompletionType(suggestion: Suggestion): CodewhispererCompleti
     return nonBlankLines > 1 ? 'Block' : 'Line'
 }
 
+export function enabledModelSelection(params: InitializeParams | undefined): boolean {
+    const qCapabilities = params?.initializationOptions?.aws?.awsClientCapabilities?.q as
+        | QClientCapabilities
+        | undefined
+    return qCapabilities?.modelSelection || false
+}
+
 export function parseJson(jsonString: string) {
     try {
         return JSON.parse(jsonString)
@@ -360,6 +369,23 @@ export function getBearerTokenFromProvider(credentialsProvider: CredentialsProvi
     }
 
     return credentials.token
+}
+
+export function getIAMCredentialsFromProvider(credentialsProvider: CredentialsProvider) {
+    if (!credentialsProvider.hasCredentials('iam')) {
+        throw new Error('Missing IAM creds')
+    }
+
+    const credentials = credentialsProvider.getCredentials('iam') as Credentials
+    return {
+        accessKeyId: credentials.accessKeyId,
+        secretAccessKey: credentials.secretAccessKey,
+        sessionToken: credentials.sessionToken,
+    }
+}
+
+export function isUsingIAMAuth(): boolean {
+    return process.env.USE_IAM_AUTH === 'true'
 }
 
 export const flattenMetric = (obj: any, prefix = '') => {
