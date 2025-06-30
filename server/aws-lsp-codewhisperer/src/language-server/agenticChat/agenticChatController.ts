@@ -3436,6 +3436,9 @@ export class AgenticChatController implements ChatHandlers {
             this.#log(`Cannot handle MCP tool result: missing name or toolUseId`)
             return
         }
+        // Get the stored blockId for this tool use and if cachedButtonBlockId is undefined that refer to requiresAcceptance = false
+        const cachedToolUse = session.toolUseLookup.get(toolUse.toolUseId)
+        const cachedButtonBlockId = (cachedToolUse as any)?.cachedButtonBlockId
 
         // Get original server and tool names from the mapping
         const originalNames = McpManager.instance.getOriginalToolNames(toolUse.name)
@@ -3458,6 +3461,13 @@ export class AgenticChatController implements ChatHandlers {
                                 icon: 'tools',
                                 body: `${toolName}`,
                                 fileList: undefined,
+                                ...(cachedButtonBlockId === undefined && {
+                                    status: {
+                                        status: 'success',
+                                        icon: 'ok',
+                                        text: 'Completed',
+                                    },
+                                }),
                             },
                         },
                         collapsedContent: [
@@ -3476,10 +3486,6 @@ export class AgenticChatController implements ChatHandlers {
                         ],
                     },
                 }
-
-                // Get the stored blockId for this tool use
-                const cachedToolUse = session.toolUseLookup.get(toolUse.toolUseId)
-                const cachedButtonBlockId = (cachedToolUse as any)?.cachedButtonBlockId
 
                 if (cachedButtonBlockId !== undefined) {
                     // Update the existing card with the results
